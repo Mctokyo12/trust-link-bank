@@ -1,0 +1,6 @@
+{
+  "name": "NovaPay - Pan-African Multi-Currency Banking",
+  "description": "Fintech and digital banking platform for multi-country African markets with XAF, USD, EUR wallets, instant P2P/Mobile Money transfers, FX exchange, double-entry ledger, and admin back-office.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
