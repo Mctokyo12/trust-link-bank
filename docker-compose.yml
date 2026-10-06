@@ -1,0 +1,114 @@
+services:
+  app:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: trustlink_app
+    restart: unless-stopped
+    working_dir: /var/www/html
+    volumes:
+      - ./backend:/var/www/html
+    environment:
+      APP_NAME: "Trust Link Bank"
+      APP_ENV: local
+      APP_KEY: "base64:XG8d2Lg9y5M4P3k7W1z0R9t6Q2j8F4v1A7s3D5g6H8k="
+      APP_DEBUG: "true"
+      APP_URL: "http://localhost:8000"
+      DB_CONNECTION: mysql
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_DATABASE: trustlinkbank_db
+      DB_USERNAME: trustlinkbank_user
+      DB_PASSWORD: trustlinkbank_secret_password
+      REDIS_HOST: redis
+      REDIS_PASSWORD: null
+      REDIS_PORT: 6379
+      CACHE_STORE: redis
+      QUEUE_CONNECTION: redis
+      SESSION_DRIVER: redis
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - trustlink_network
+
+  nginx:
+    image: nginx:alpine
+    container_name: trustlink_nginx
+    restart: unless-stopped
+    ports:
+      - "8000:80"
+    volumes:
+      - ./backend:/var/www/html
+      - ./docker/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - app
+    networks:
+      - trustlink_network
+
+  mysql:
+    image: mysql:8.0
+    container_name: trustlink_mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: root_secret_password
+      MYSQL_DATABASE: trustlinkbank_db
+      MYSQL_USER: trustlinkbank_user
+      MYSQL_PASSWORD: trustlinkbank_secret_password
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "trustlinkbank_user", "-ptrustlinkbank_secret_password"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - trustlink_network
+
+  redis:
+    image: redis:alpine
+    container_name: trustlink_redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - trustlink_network
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: trustlink_frontend
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    environment:
+      - VITE_API_URL=http://localhost:8000/api
+    depends_on:
+      - nginx
+    networks:
+      - trustlink_network
+
+networks:
+  trustlink_network:
+    driver: bridge
+
+volumes:
+  mysql_data:
+    driver: local
+  redis_data:
+    driver: local

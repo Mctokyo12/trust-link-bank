@@ -1,0 +1,217 @@
+openapi: 3.0.3
+info:
+  title: Trust Link Bank Pan-African Digital Banking API
+  version: 1.0.0
+  description: |
+    Production-grade RESTful API for Trust Link Bank — A multi-currency fintech & digital banking platform
+    powering cross-border African markets (XAF/BEAC, USD, EUR, XOF) with an immutable double-entry ledger.
+
+servers:
+  - url: http://localhost:8000/api
+    description: Local Docker Development Server
+  - url: https://api.trustlinkbank.com/v1
+    description: Staging / Production Gateway
+
+security:
+  - BearerAuth: []
+
+paths:
+  /auth/register:
+    post:
+      summary: Register a new customer
+      tags: [Authentication]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, email, phone, password, password_confirmation, country_code]
+              properties:
+                name: { type: string, example: "Amina Sow" }
+                email: { type: string, example: "amina@novapay.africa" }
+                phone: { type: string, example: "+237670123456" }
+                password: { type: string, example: "SecurePass2026!" }
+                password_confirmation: { type: string, example: "SecurePass2026!" }
+                country_code: { type: string, example: "CM" }
+                language: { type: string, enum: [fr, en], example: "fr" }
+      responses:
+        201:
+          description: User and multi-currency wallets provisioned
+        422:
+          $ref: '#/components/responses/ValidationError'
+
+  /auth/login:
+    post:
+      summary: Authenticate and retrieve Sanctum bearer token
+      tags: [Authentication]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [identifier, password]
+              properties:
+                identifier: { type: string, example: "amina@novapay.africa" }
+                password: { type: string, example: "password123" }
+      responses:
+        200:
+          description: Access token granted
+        401:
+          $ref: '#/components/responses/ErrorResponse'
+
+  /auth/otp/verify:
+    post:
+      summary: Verify simulated OTP
+      tags: [Authentication]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [identifier, code]
+              properties:
+                identifier: { type: string, example: "+237670123456" }
+                code: { type: string, example: "123456" }
+      responses:
+        200:
+          description: OTP validated
+
+  /wallets:
+    get:
+      summary: List user wallets and derived ledger balances
+      tags: [Wallets]
+      responses:
+        200:
+          description: List of wallets
+
+  /transfers:
+    post:
+      summary: Execute transfer (Double-Entry ledger)
+      tags: [Transfers]
+      parameters:
+        - in: header
+          name: Idempotency-Key
+          required: true
+          schema: { type: string, example: "idem-tx-99281923" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [source_wallet_id, channel, recipient_identifier, amount]
+              properties:
+                source_wallet_id: { type: integer, example: 1 }
+                channel: { type: string, enum: [novapay, momo, bank], example: "novapay" }
+                recipient_identifier: { type: string, example: "@samuel99" }
+                recipient_name: { type: string, example: "Samuel Eto'o" }
+                amount: { type: number, example: 50000 }
+                reason: { type: string, example: "Paiement prestation" }
+      responses:
+        201:
+          description: Transfer executed successfully
+        409:
+          description: Duplicate idempotency key or request in progress
+
+  /exchange/quote:
+    post:
+      summary: Request guaranteed FX conversion quote (60s TTL)
+      tags: [Exchange]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [from_currency, to_currency, from_amount]
+              properties:
+                from_currency: { type: string, example: "USD" }
+                to_currency: { type: string, example: "XAF" }
+                from_amount: { type: number, example: 100 }
+      responses:
+        200:
+          description: Quote details with rate and expiry timestamp
+
+  /exchange/execute:
+    post:
+      summary: Execute atomic currency swap
+      tags: [Exchange]
+      parameters:
+        - in: header
+          name: Idempotency-Key
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [source_wallet_id, destination_wallet_id, sell_amount]
+              properties:
+                source_wallet_id: { type: integer }
+                destination_wallet_id: { type: integer }
+                sell_amount: { type: number, example: 50 }
+                quote_id: { type: string }
+      responses:
+        201:
+          description: Currency swap completed
+
+  /transactions:
+    get:
+      summary: Query ledger transactions
+      tags: [Transactions]
+      parameters:
+        - in: query
+          name: type
+          schema: { type: string }
+        - in: query
+          name: currency
+          schema: { type: string }
+        - in: query
+          name: search
+          schema: { type: string }
+      responses:
+        200:
+          description: Paginated transaction list
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: Sanctum
+
+  responses:
+    ValidationError:
+      description: Validation failed
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorFormat'
+    ErrorResponse:
+      description: Standardized error format
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorFormat'
+
+  schemas:
+    ErrorFormat:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message, details, reference]
+          properties:
+            code: { type: string, example: "INSUFFICIENT_BALANCE" }
+            message: { type: string, example: "Solde disponible insuffisant pour cette opération." }
+            details: { type: object }
+            reference: { type: string, example: "NP-ERR-98A72B3C" }

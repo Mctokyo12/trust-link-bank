@@ -1,0 +1,59 @@
+name: Trust Link Bank Monorepo CI
+
+on:
+  push:
+    branches: [main, master, develop]
+  pull_request:
+    branches: [main, master, develop]
+
+jobs:
+  backend-test:
+    name: Backend Tests (Laravel 12 / PHP 8.3)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: mbstring, pdo, pdo_sqlite, bcmath, redis, intl
+          coverage: none
+
+      - name: Install Composer dependencies
+        run: composer install --no-interaction --prefer-dist --optimize-autoloader
+
+      - name: Run Backend Test Suite (Pest)
+        run: ./vendor/bin/pest
+
+  frontend-build:
+    name: Frontend Quality & Build (React 19 / Vite)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: frontend/package.json
+
+      - name: Install Node dependencies
+        run: npm ci || npm install
+
+      - name: Typecheck / Lint
+        run: npm run lint
+
+      - name: Build Production Bundle
+        run: npm run build

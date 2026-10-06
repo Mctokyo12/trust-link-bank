@@ -1,6 +1,6 @@
 {
-  "name": "NovaPay - Pan-African Multi-Currency Banking",
-  "description": "Fintech and digital banking platform for multi-country African markets with XAF, USD, EUR wallets, instant P2P/Mobile Money transfers, FX exchange, double-entry ledger, and admin back-office.",
+  "name": "Trust Link Bank - Pan-African Multi-Currency Banking",
+  "description": "Next-generation digital banking platform for the Americas and global markets with USD, CAD, EUR, BRL, and MXN accounts, instant Fedwire/ACH/PIX/SPEI/SEPA transfers, FX exchange, and double-entry ledger.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }
