@@ -53,17 +53,11 @@ export const LoginPage: React.FC = () => {
     try {
       const fullIdentifier = authMode === 'phone' ? `${selectedCountry.code} ${identifier.trim()}` : identifier.trim();
       const user = await authApi.login(fullIdentifier, password);
+      await initApp();
       if (user.role === 'admin' || user.role === 'super_admin') {
-        setErrorMsg(
-          t(
-            'auth.adminUseDedicatedPortal',
-            'Administrator accounts must sign in through the dedicated Admin Portal (/admin/login).'
-          )
-        );
-        setIsLoading(false);
+        navigate('/admin');
         return;
       }
-      await initApp();
       navigate('/dashboard');
     } catch (err: any) {
       setErrorMsg(err?.message || t('auth.invalidCredentialsError'));
@@ -80,17 +74,11 @@ export const LoginPage: React.FC = () => {
     setIsLoading(true);
     try {
       const user = await authApi.login(identifier.trim(), password);
+      await initApp();
       if (user.role === 'admin' || user.role === 'super_admin') {
-        setErrorMsg(
-          t(
-            'auth.adminUseDedicatedPortal',
-            'Administrator accounts must sign in through the dedicated Admin Portal (/admin/login).'
-          )
-        );
-        setIsLoading(false);
+        navigate('/admin');
         return;
       }
-      await initApp();
       navigate('/dashboard');
     } catch {
       setErrorMsg(t('auth.invalidCredentialsError'));
@@ -290,6 +278,17 @@ export const LoginPage: React.FC = () => {
           <span>{t('auth.noAccountYet')} </span>
           <Link to="/register" className="text-[#2563EB] dark:text-blue-400 font-bold hover:underline">
             {t('auth.createAccount')}
+          </Link>
+        </div>
+
+        {/* Dedicated Admin Portal Access Link */}
+        <div className="mt-4 pt-4 border-t border-slate-100 dark:border-slate-800/80 text-center">
+          <Link
+            to="/admin/login"
+            className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-500 dark:text-slate-400 hover:text-[#2563EB] dark:hover:text-blue-400 transition-colors"
+          >
+            <ShieldCheck className="w-3.5 h-3.5 text-[#2563EB] dark:text-blue-400" />
+            <span>{t('admin.login.portalLink', 'Admin Portal')} (Back-Office)</span>
           </Link>
         </div>
       </div>

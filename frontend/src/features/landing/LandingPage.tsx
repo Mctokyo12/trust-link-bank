@@ -295,6 +295,15 @@ export const LandingPage: React.FC = () => {
                 <span>{t('landing.ctaOpenAccount', 'Open Account')}</span>
                 <ArrowRight className="w-4 h-4" />
               </button>
+              <button
+                onClick={() => {
+                  setIsMobileNavOpen(false);
+                  navigate('/admin/login');
+                }}
+                className="w-full py-2 px-4 text-center rounded-xl text-xs font-bold text-slate-500 dark:text-slate-400 hover:text-[#2563EB] dark:hover:text-blue-400 transition-colors"
+              >
+                {t('admin.login.portalLink', 'Admin Portal')}
+              </button>
             </div>
           </div>
         )}

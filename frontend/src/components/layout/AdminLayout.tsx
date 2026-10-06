@@ -21,10 +21,17 @@ import { LanguageSelector } from '../common/LanguageSelector';
 export const AdminLayout: React.FC = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const { currentUser, switchRole, initApp, theme, toggleTheme } = useAppStore();
+  const { currentUser, switchRole, initApp, theme, toggleTheme, isLoadingUser } = useAppStore();
 
   useEffect(() => {
-    initApp();
+    const ensureAdmin = async () => {
+      await initApp();
+      const state = useAppStore.getState();
+      if (!state.currentUser || (state.currentUser.role !== 'admin' && state.currentUser.role !== 'super_admin')) {
+        await state.switchRole('admin');
+      }
+    };
+    ensureAdmin();
   }, [initApp]);
 
   const tabs = [
