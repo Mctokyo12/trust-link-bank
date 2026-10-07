@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { User, Wallet } from '../types';
 import { authApi, walletsApi, notificationsApi, profileApi } from '../services/api/client';
+import { initCloudDatabase, subscribeToCloudDatabase } from '../services/api/mockData';
 import i18n from '../i18n';
 
 const getInitialTheme = (): 'light' | 'dark' => {
@@ -85,6 +86,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   initApp: async () => {
     try {
       set({ isLoadingUser: true });
+      await initCloudDatabase();
       const user = await authApi.getCurrentUser();
       if (!user) {
         set({
@@ -201,3 +203,19 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
   },
 }));
+
+// Real-time cloud synchronization listener: refresh active user's wallets and notifications whenever Firestore updates
+subscribeToCloudDatabase(async () => {
+  const state = useAppStore.getState();
+  if (state.currentUser) {
+    const updatedUser = await authApi.getCurrentUser();
+    const wallets = await walletsApi.getWallets(state.currentUser.id);
+    const notifications = await notificationsApi.getNotifications(state.currentUser.id);
+    const unreadCount = notifications.filter((n) => !n.read_at).length;
+    useAppStore.setState({
+      currentUser: updatedUser || state.currentUser,
+      wallets,
+      unreadNotificationsCount: unreadCount,
+    });
+  }
+});

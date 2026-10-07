@@ -11,8 +11,32 @@ import {
   AuditLog,
   UserSession,
 } from '../../types';
+import { doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore';
+import { db as firestoreDb, handleFirestoreError, OperationType } from '../../firebase';
 
 export const STORAGE_KEY = 'trust_link_bank_clean_v9';
+const FIRESTORE_DOC_PATH = 'app_state';
+const FIRESTORE_DOC_ID = 'global_ledger_v1';
+
+// In-memory synchronized state backed by Cloud Firestore
+let cloudDatabaseCache: DatabaseState | null = null;
+let isFirestoreInitialized = false;
+const stateListeners = new Set<() => void>();
+
+export function subscribeToCloudDatabase(listener: () => void): () => void {
+  stateListeners.add(listener);
+  return () => {
+    stateListeners.delete(listener);
+  };
+}
+
+function notifyListeners() {
+  stateListeners.forEach((fn) => {
+    try {
+      fn();
+    } catch {}
+  });
+}
 
 export interface DatabaseState {
   users: User[];
@@ -280,10 +304,142 @@ const initialData: DatabaseState = {
   idempotency_keys: {},
 };
 
+function stripUndefined<T>(obj: T): T {
+  return JSON.parse(JSON.stringify(obj));
+}
+
+function mergeDatabaseStates(base: DatabaseState, incoming: Partial<DatabaseState>): DatabaseState {
+  const mergedUsers = [...(incoming.users || [])];
+  for (const u of base.users || []) {
+    if (!mergedUsers.some((mu) => mu.id === u.id || (mu.email && u.email && mu.email.toLowerCase() === u.email.toLowerCase()))) {
+      mergedUsers.push(u);
+    }
+  }
+
+  const mergedWallets = [...(incoming.wallets || [])];
+  for (const w of base.wallets || []) {
+    if (!mergedWallets.some((mw) => mw.id === w.id)) {
+      mergedWallets.push(w);
+    }
+  }
+
+  const mergedTransactions = [...(incoming.transactions || [])];
+  for (const t of base.transactions || []) {
+    if (!mergedTransactions.some((mt) => mt.id === t.id)) {
+      mergedTransactions.push(t);
+    }
+  }
+  mergedTransactions.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+  const mergedEntries = [...(incoming.transaction_entries || [])];
+  for (const e of base.transaction_entries || []) {
+    if (!mergedEntries.some((me) => me.id === e.id)) {
+      mergedEntries.push(e);
+    }
+  }
+
+  const mergedBeneficiaries = [...(incoming.beneficiaries || [])];
+  for (const b of base.beneficiaries || []) {
+    if (!mergedBeneficiaries.some((mb) => mb.id === b.id)) {
+      mergedBeneficiaries.push(b);
+    }
+  }
+
+  const mergedNotifications = [...(incoming.notifications || [])];
+  for (const n of base.notifications || []) {
+    if (!mergedNotifications.some((mn) => mn.id === n.id)) {
+      mergedNotifications.push(n);
+    }
+  }
+  mergedNotifications.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+  const mergedAuditLogs = [...(incoming.audit_logs || [])];
+  for (const l of base.audit_logs || []) {
+    if (!mergedAuditLogs.some((ml) => ml.id === l.id)) {
+      mergedAuditLogs.push(l);
+    }
+  }
+  mergedAuditLogs.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+  return {
+    users: mergedUsers,
+    wallets: mergedWallets,
+    transactions: mergedTransactions,
+    transaction_entries: mergedEntries,
+    beneficiaries: mergedBeneficiaries,
+    exchange_rates: incoming.exchange_rates?.length ? incoming.exchange_rates : base.exchange_rates,
+    fees: incoming.fees?.length ? incoming.fees : base.fees,
+    notifications: mergedNotifications,
+    kyc_profiles: incoming.kyc_profiles?.length ? incoming.kyc_profiles : base.kyc_profiles,
+    audit_logs: mergedAuditLogs.slice(0, 250),
+    sessions: incoming.sessions?.length ? incoming.sessions : base.sessions,
+    idempotency_keys: { ...(base.idempotency_keys || {}), ...(incoming.idempotency_keys || {}) },
+  };
+}
+
+export async function initCloudDatabase(): Promise<DatabaseState> {
+  const localCurrent = getDatabase();
+  const docRef = doc(firestoreDb, FIRESTORE_DOC_PATH, FIRESTORE_DOC_ID);
+
+  const syncTask = (async () => {
+    try {
+      const snap = await getDoc(docRef);
+      if (snap.exists()) {
+        const remoteData = snap.data() as DatabaseState;
+        const merged = mergeDatabaseStates(localCurrent, remoteData);
+        cloudDatabaseCache = merged;
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
+        await setDoc(docRef, stripUndefined({ ...merged, updated_at: new Date().toISOString() }));
+      } else {
+        cloudDatabaseCache = localCurrent;
+        await setDoc(docRef, stripUndefined({ ...localCurrent, updated_at: new Date().toISOString() }));
+      }
+    } catch (error) {
+      try {
+        handleFirestoreError(error, OperationType.GET, `${FIRESTORE_DOC_PATH}/${FIRESTORE_DOC_ID}`);
+      } catch {
+        // Fallback gracefully if network is temporarily unreachable
+      }
+    }
+  })();
+
+  await Promise.race([
+    syncTask,
+    new Promise((resolve) => setTimeout(resolve, 1200)),
+  ]);
+
+  if (!isFirestoreInitialized && typeof window !== 'undefined') {
+    isFirestoreInitialized = true;
+    onSnapshot(
+      docRef,
+      (snapshot) => {
+        if (snapshot.exists()) {
+          const remote = snapshot.data() as DatabaseState;
+          if (remote && Array.isArray(remote.users)) {
+            cloudDatabaseCache = remote;
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(remote));
+            notifyListeners();
+          }
+        }
+      },
+      (error) => {
+        try {
+          handleFirestoreError(error, OperationType.GET, `${FIRESTORE_DOC_PATH}/${FIRESTORE_DOC_ID}`);
+        } catch {}
+      }
+    );
+  }
+
+  return cloudDatabaseCache || localCurrent;
+}
+
 export function getDatabase(): DatabaseState {
+  if (cloudDatabaseCache) {
+    return cloudDatabaseCache;
+  }
+
   const raw = localStorage.getItem(STORAGE_KEY);
   if (!raw) {
-    // Check if previous versions exist and migrate any registered users
     const oldKeys = ['trust_link_bank_clean_v6', 'trust_link_bank_clean_v5', 'novapay_db_v4'];
     let migratedUsers: User[] = [];
     let migratedWallets: Wallet[] = [];
@@ -309,7 +465,6 @@ export function getDatabase(): DatabaseState {
       wallets: [...initialData.wallets],
     };
 
-    // Add any non-duplicate migrated users
     for (const u of migratedUsers) {
       if (!mergedData.users.some((mu) => mu.id === u.id || (mu.email && u.email && mu.email.toLowerCase() === u.email.toLowerCase()))) {
         mergedData.users.push(u);
@@ -321,6 +476,7 @@ export function getDatabase(): DatabaseState {
       }
     }
 
+    cloudDatabaseCache = mergedData;
     saveDatabase(mergedData);
     return mergedData;
   }
@@ -330,7 +486,6 @@ export function getDatabase(): DatabaseState {
     if (!parsed.users) parsed.users = [];
     if (!parsed.wallets) parsed.wallets = [];
 
-    // Ensure all seed users exist in the active user pool
     let changed = false;
     for (const initU of initialData.users) {
       if (!parsed.users.some((u) => u.id === initU.id || (u.email && initU.email && u.email.toLowerCase() === initU.email.toLowerCase()))) {
@@ -344,18 +499,27 @@ export function getDatabase(): DatabaseState {
         changed = true;
       }
     }
+    cloudDatabaseCache = parsed;
     if (changed) {
       saveDatabase(parsed);
     }
     return parsed;
   } catch {
+    cloudDatabaseCache = initialData;
     saveDatabase(initialData);
     return initialData;
   }
 }
 
 export function saveDatabase(data: DatabaseState): void {
+  cloudDatabaseCache = data;
   localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+  const docRef = doc(firestoreDb, FIRESTORE_DOC_PATH, FIRESTORE_DOC_ID);
+  setDoc(docRef, stripUndefined({ ...data, updated_at: new Date().toISOString() })).catch((error) => {
+    try {
+      handleFirestoreError(error, OperationType.WRITE, `${FIRESTORE_DOC_PATH}/${FIRESTORE_DOC_ID}`);
+    } catch {}
+  });
 }
 
 // DOUBLE-ENTRY LEDGER: Calculate balances derived from transaction entries

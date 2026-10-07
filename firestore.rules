@@ -1,0 +1,126 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Default deny catch-all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    // Connection test endpoint
+    match /test/{docId} {
+      allow get: if isValidId(docId);
+    }
+
+    // Global synchronized banking state collection for multi-device worldwide persistence
+    match /app_state/{docId} {
+      allow get: if isValidId(docId);
+      allow list: if resource.data.updated_at is string;
+      allow create, update: if isValidId(docId)
+        && incoming().updated_at is string
+        && incoming().updated_at.size() <= 64;
+    }
+
+    // Users collection
+    match /users/{userId} {
+      allow get: if isValidId(userId);
+      allow list: if resource.data.id is string;
+      allow create, update: if isValidId(userId)
+        && incoming().id is string && incoming().id.size() <= 128
+        && incoming().name is string && incoming().name.size() <= 120
+        && incoming().email is string && incoming().email.size() <= 150
+        && incoming().role in ['client', 'admin', 'super_admin']
+        && incoming().status in ['active', 'suspended', 'pending'];
+    }
+
+    // Wallets collection
+    match /wallets/{walletId} {
+      allow get: if isValidId(walletId);
+      allow list: if resource.data.id is string;
+      allow create, update: if isValidId(walletId)
+        && incoming().id is string && incoming().id.size() <= 128
+        && incoming().user_id is string && incoming().user_id.size() <= 128
+        && incoming().currency is string && incoming().currency.size() <= 10
+        && incoming().account_number is string && incoming().account_number.size() <= 64;
+    }
+
+    // Transactions collection
+    match /transactions/{transactionId} {
+      allow get: if isValidId(transactionId);
+      allow list: if resource.data.id is string;
+      allow create, update: if isValidId(transactionId)
+        && incoming().id is string && incoming().id.size() <= 128
+        && incoming().reference is string && incoming().reference.size() <= 64
+        && incoming().currency is string && incoming().currency.size() <= 10
+        && incoming().description is string && incoming().description.size() <= 500;
+    }
+
+    // Transaction Entries collection
+    match /transaction_entries/{entryId} {
+      allow get: if isValidId(entryId);
+      allow list: if resource.data.id is string;
+      allow create, update: if isValidId(entryId)
+        && incoming().id is string && incoming().id.size() <= 128
+        && incoming().transaction_id is string && incoming().transaction_id.size() <= 128
+        && incoming().wallet_id is string && incoming().wallet_id.size() <= 128
+        && incoming().direction in ['debit', 'credit'];
+    }
+
+    // Beneficiaries collection
+    match /beneficiaries/{beneficiaryId} {
+      allow get: if isValidId(beneficiaryId);
+      allow list: if resource.data.id is string;
+      allow create, update: if isValidId(beneficiaryId)
+        && incoming().id is string && incoming().id.size() <= 128
+        && incoming().user_id is string && incoming().user_id.size() <= 128
+        && incoming().full_name is string && incoming().full_name.size() <= 120;
+      allow delete: if isValidId(beneficiaryId);
+    }
+
+    // Notifications collection
+    match /notifications/{notificationId} {
+      allow get: if isValidId(notificationId);
+      allow list: if resource.data.id is string;
+      allow create, update: if isValidId(notificationId)
+        && incoming().id is string && incoming().id.size() <= 128
+        && incoming().user_id is string && incoming().user_id.size() <= 128
+        && incoming().title is string && incoming().title.size() <= 200;
+    }
+
+    // Exchange Rates collection
+    match /exchange_rates/{rateId} {
+      allow get: if isValidId(rateId);
+      allow list: if resource.data.id is string;
+      allow create, update: if isValidId(rateId)
+        && incoming().id is string && incoming().id.size() <= 128
+        && incoming().base_currency is string && incoming().base_currency.size() <= 10
+        && incoming().quote_currency is string && incoming().quote_currency.size() <= 10;
+    }
+
+    // Fees collection
+    match /fees/{feeId} {
+      allow get: if isValidId(feeId);
+      allow list: if resource.data.id is string;
+      allow create, update: if isValidId(feeId)
+        && incoming().id is string && incoming().id.size() <= 128
+        && incoming().type is string && incoming().type.size() <= 40;
+    }
+
+    // Audit Logs collection
+    match /audit_logs/{logId} {
+      allow get: if isValidId(logId);
+      allow list: if resource.data.id is string;
+      allow create, update: if isValidId(logId)
+        && incoming().id is string && incoming().id.size() <= 128
+        && incoming().action is string && incoming().action.size() <= 100;
+    }
+  }
+}

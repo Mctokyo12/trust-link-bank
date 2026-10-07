@@ -2,6 +2,7 @@ import {
   getDatabase,
   saveDatabase,
   calculateWalletBalances,
+  initCloudDatabase,
 } from './mockData';
 import {
   requestApi,
@@ -51,7 +52,7 @@ export const authApi = {
       // If backend is offline or network fails, proceed with seamless local fallback
     }
 
-    await delay(80);
+    await initCloudDatabase();
     const db = getDatabase();
     // Match by email, phone, novatag, or admin keyword
     let user = db.users.find(
@@ -145,6 +146,7 @@ export const authApi = {
       // offline fallback
     }
 
+    await initCloudDatabase();
     const db = getDatabase();
 
     // Ensure unique novatag

@@ -1,0 +1,206 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "Registered client or administrator profile in Trust Link Bank.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "name": { "type": "string", "maxLength": 120 },
+        "first_name": { "type": "string", "maxLength": 60 },
+        "last_name": { "type": "string", "maxLength": 60 },
+        "email": { "type": "string", "format": "email", "maxLength": 150 },
+        "phone": { "type": "string", "maxLength": 40 },
+        "country": { "type": "string", "maxLength": 80 },
+        "country_code": { "type": "string", "maxLength": 10 },
+        "flag": { "type": "string", "maxLength": 20 },
+        "role": { "type": "string", "enum": ["client", "admin", "super_admin"] },
+        "status": { "type": "string", "enum": ["active", "suspended", "pending"] },
+        "novatag": { "type": "string", "maxLength": 60 },
+        "avatar_url": { "type": "string", "maxLength": 500 },
+        "preferred_currency": { "type": "string", "maxLength": 10 },
+        "language": { "type": "string", "maxLength": 10 },
+        "created_at": { "type": "string", "maxLength": 50 }
+      },
+      "required": ["id", "name", "email", "role", "status", "preferred_currency", "created_at"]
+    },
+    "Wallet": {
+      "title": "Wallet",
+      "description": "Multi-currency financial account holding a user's balance.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "user_id": { "type": "string", "maxLength": 128 },
+        "currency": { "type": "string", "maxLength": 10 },
+        "account_number": { "type": "string", "maxLength": 64 },
+        "iban": { "type": "string", "maxLength": 64 },
+        "bic_swift": { "type": "string", "maxLength": 32 },
+        "balance": { "type": "number" },
+        "available_balance": { "type": "number" },
+        "status": { "type": "string", "enum": ["active", "frozen", "closed"] },
+        "created_at": { "type": "string", "maxLength": 50 }
+      },
+      "required": ["id", "user_id", "currency", "account_number", "balance", "available_balance", "status", "created_at"]
+    },
+    "Transaction": {
+      "title": "Transaction",
+      "description": "Financial transaction record (transfer, exchange, deposit).",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "reference": { "type": "string", "maxLength": 64 },
+        "type": { "type": "string", "maxLength": 32 },
+        "status": { "type": "string", "enum": ["pending", "completed", "failed", "cancelled"] },
+        "amount": { "type": "number" },
+        "currency": { "type": "string", "maxLength": 10 },
+        "fee": { "type": "number" },
+        "description": { "type": "string", "maxLength": 500 },
+        "sender_id": { "type": "string", "maxLength": 128 },
+        "receiver_id": { "type": "string", "maxLength": 128 },
+        "sender_name": { "type": "string", "maxLength": 120 },
+        "recipient_name": { "type": "string", "maxLength": 120 },
+        "recipient_identifier": { "type": "string", "maxLength": 150 },
+        "operator_ref": { "type": "string", "maxLength": 80 },
+        "created_at": { "type": "string", "maxLength": 50 }
+      },
+      "required": ["id", "reference", "type", "status", "amount", "currency", "fee", "description", "created_at"]
+    },
+    "TransactionEntry": {
+      "title": "TransactionEntry",
+      "description": "Double-entry ledger debit or credit entry linked to a wallet and transaction.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "transaction_id": { "type": "string", "maxLength": 128 },
+        "wallet_id": { "type": "string", "maxLength": 128 },
+        "direction": { "type": "string", "enum": ["debit", "credit"] },
+        "amount": { "type": "number" },
+        "created_at": { "type": "string", "maxLength": 50 }
+      },
+      "required": ["id", "transaction_id", "wallet_id", "direction", "amount", "created_at"]
+    },
+    "Beneficiary": {
+      "title": "Beneficiary",
+      "description": "Saved payment beneficiary for a user.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "user_id": { "type": "string", "maxLength": 128 },
+        "alias": { "type": "string", "maxLength": 100 },
+        "full_name": { "type": "string", "maxLength": 120 },
+        "type": { "type": "string", "maxLength": 32 },
+        "provider": { "type": "string", "maxLength": 80 },
+        "identifier": { "type": "string", "maxLength": 150 },
+        "currency": { "type": "string", "maxLength": 10 },
+        "created_at": { "type": "string", "maxLength": 50 }
+      },
+      "required": ["id", "user_id", "full_name", "type", "identifier", "currency", "created_at"]
+    },
+    "NotificationItem": {
+      "title": "NotificationItem",
+      "description": "User notification item.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "user_id": { "type": "string", "maxLength": 128 },
+        "type": { "type": "string", "maxLength": 32 },
+        "title": { "type": "string", "maxLength": 200 },
+        "body": { "type": "string", "maxLength": 1000 },
+        "read_at": { "type": "string", "maxLength": 50 },
+        "created_at": { "type": "string", "maxLength": 50 }
+      },
+      "required": ["id", "user_id", "type", "title", "body", "created_at"]
+    },
+    "ExchangeRate": {
+      "title": "ExchangeRate",
+      "description": "FX exchange rate configuration.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "base_currency": { "type": "string", "maxLength": 10 },
+        "quote_currency": { "type": "string", "maxLength": 10 },
+        "rate": { "type": "number" },
+        "effective_at": { "type": "string", "maxLength": 50 }
+      },
+      "required": ["id", "base_currency", "quote_currency", "rate", "effective_at"]
+    },
+    "FeeConfig": {
+      "title": "FeeConfig",
+      "description": "Platform transaction fee configuration.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "type": { "type": "string", "maxLength": 40 },
+        "currency": { "type": "string", "maxLength": 10 },
+        "fixed_amount": { "type": "number" },
+        "percentage": { "type": "number" }
+      },
+      "required": ["id", "type", "currency", "fixed_amount", "percentage"]
+    },
+    "AuditLog": {
+      "title": "AuditLog",
+      "description": "Immutable security and compliance audit trail entry.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "actor_id": { "type": "string", "maxLength": 128 },
+        "actor_name": { "type": "string", "maxLength": 120 },
+        "action": { "type": "string", "maxLength": 100 },
+        "entity": { "type": "string", "maxLength": 64 },
+        "created_at": { "type": "string", "maxLength": 50 }
+      },
+      "required": ["id", "actor_id", "actor_name", "action", "entity", "created_at"]
+    },
+    "AppStateDoc": {
+      "title": "AppStateDoc",
+      "description": "Global synchronized banking state document for multi-user real-time access.",
+      "type": "object",
+      "properties": {
+        "updated_at": { "type": "string", "maxLength": 50 }
+      },
+      "required": ["updated_at"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "Global registered users collection"
+    },
+    "/wallets/{walletId}": {
+      "schema": "Wallet",
+      "description": "Global multi-currency wallets collection"
+    },
+    "/transactions/{transactionId}": {
+      "schema": "Transaction",
+      "description": "Global double-entry transactions ledger"
+    },
+    "/transaction_entries/{entryId}": {
+      "schema": "TransactionEntry",
+      "description": "Global double-entry debit and credit lines"
+    },
+    "/beneficiaries/{beneficiaryId}": {
+      "schema": "Beneficiary",
+      "description": "Saved user beneficiaries"
+    },
+    "/notifications/{notificationId}": {
+      "schema": "NotificationItem",
+      "description": "User notifications"
+    },
+    "/exchange_rates/{rateId}": {
+      "schema": "ExchangeRate",
+      "description": "Global FX rates"
+    },
+    "/fees/{feeId}": {
+      "schema": "FeeConfig",
+      "description": "Global fee rules"
+    },
+    "/audit_logs/{logId}": {
+      "schema": "AuditLog",
+      "description": "Compliance audit logs"
+    },
+    "/app_state/{docId}": {
+      "schema": "AppStateDoc",
+      "description": "Synchronized global banking ledger state"
+    }
+  }
+}

@@ -12,5 +12,8 @@
     "preview": "npm run preview --workspace=frontend",
     "lint": "npm run lint --workspace=frontend",
     "test": "npm run test --workspace=frontend"
+  },
+  "dependencies": {
+    "firebase": "^12.19.0"
   }
 }
